@@ -6,5 +6,6 @@ pytorch_env
 models
 build
 correlation.egg-info
-OUTPUT*
+OUTPUT
+OUTPUT_PERSP
 INPUT
