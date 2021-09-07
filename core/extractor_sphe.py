@@ -6,9 +6,11 @@ import torchvision
 def func_conv_deform(x, loc_layer, k, s, layers_act_num, offset_file = '', activated = False):
     # print(loc_layer)
     if offset_file == '':
-        offset_file = './OFFSETS/offset_'+str(int(x.shape[3]/s))+'_'+str(int(x.shape[2]/s))+'_'+str(k)+'_'+str(k)+'_'+str(s)+'_'+str(s)+'_'+str(int(x.shape[0]))+'.pt'
+        offset_file = './OFFSETS/offset_'+str(int(x.shape[3]/s))+'_'+str(int(x.shape[2]/s))+'_'+str(k)+'_'+str(k)+'_'+str(s)+'_'+str(s)+'_1'+'.pt'
     if activated:
         offset = torch.load(offset_file).cuda()
+        if x.shape[0] != 1: 
+            offset = torch.cat([offset for _ in range(x.shape[0])],dim=0)
     else:
         offset = torch.zeros(x.shape[0],2*k*k,int(x.shape[2]/s),int(x.shape[3]/s)).cuda()
     offset.require_gradient = False
@@ -18,8 +20,9 @@ def func_conv_deform(x, loc_layer, k, s, layers_act_num, offset_file = '', activ
     return y
 
 class ResidualBlock(nn.Module):
-    def __init__(self, in_planes, planes, norm_fn='group', stride=1):
+    def __init__(self, in_planes, planes, norm_fn='group', stride=1 , num_l=0):
         super(ResidualBlock, self).__init__()
+        self.num_l = num_l
   
         # self.conv1 = nn.Conv2d(in_planes, planes, kernel_size=3, padding=1, stride=stride)
         self.conv1 = torchvision.ops.DeformConv2d(in_planes, planes, kernel_size=3, padding=1, stride=stride)
@@ -65,7 +68,8 @@ class ResidualBlock(nn.Module):
         y = x
         # y = self.relu(self.norm1(self.conv1(y)))
         print(y.shape)
-        y = self.relu(self.norm1(func_conv_deform(y, self.conv1, 3, 1, self.conv1.stride[0], '', True)))
+        print(self.conv1.stride[0])
+        y = self.relu(self.norm1(func_conv_deform(y, self.conv1, 3, self.conv1.stride[0], self.num_l, '', True)))
         y = self.relu(self.norm2(self.conv2(y)))
         # y = self.relu(self.norm2(func_conv_deform(y, self.conv2, 3, 1, 1, '', True)))
 
@@ -156,9 +160,9 @@ class BasicEncoder(nn.Module):
         self.relu1 = nn.ReLU(inplace=True)
 
         self.in_planes = 64
-        self.layer1 = self._make_layer(64,  stride=1)
-        self.layer2 = self._make_layer(96, stride=2)
-        self.layer3 = self._make_layer(128, stride=2)
+        self.layer1 = self._make_layer(64,  stride=1, num_l=0)
+        self.layer2 = self._make_layer(96, stride=2, num_l=10)
+        self.layer3 = self._make_layer(128, stride=2, num_l=20)
 
         # output convolution
         self.conv2 = nn.Conv2d(128, output_dim, kernel_size=1)
@@ -176,9 +180,9 @@ class BasicEncoder(nn.Module):
                 if m.bias is not None:
                     nn.init.constant_(m.bias, 0)
 
-    def _make_layer(self, dim, stride=1):
-        layer1 = ResidualBlock(self.in_planes, dim, self.norm_fn, stride=stride)
-        layer2 = ResidualBlock(dim, dim, self.norm_fn, stride=1)
+    def _make_layer(self, dim, stride=1, num_l=0):
+        layer1 = ResidualBlock(self.in_planes, dim, self.norm_fn, stride=stride, num_l=num_l)
+        layer2 = ResidualBlock(dim, dim, self.norm_fn, stride=1, num_l=num_l+2)
         layers = (layer1, layer2)
         
         self.in_planes = dim
