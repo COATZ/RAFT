@@ -1,4 +1,15 @@
 # RAFT
+
+## EDIT CO
+
+```Shell
+conda env create -f raft.yml
+conda activate raft
+python test_raft.py --model=models/raft-things.pth --path=INPUT
+```
+
+
+
 This repository contains the source code for our paper:
 
 [RAFT: Recurrent All Pairs Field Transforms for Optical Flow](https://arxiv.org/pdf/2003.12039.pdf)<br/>
