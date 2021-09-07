@@ -4,14 +4,16 @@ import torch.nn.functional as F
 import torchvision
 
 def func_conv_deform(x, loc_layer, k, s, layers_act_num, offset_file = '', activated = False):
-    # print(loc_layer)
+    # print(layers_act_num)
     if offset_file == '':
         offset_file = './OFFSETS/offset_'+str(int(x.shape[3]/s))+'_'+str(int(x.shape[2]/s))+'_'+str(k)+'_'+str(k)+'_'+str(s)+'_'+str(s)+'_1'+'.pt'
-    if activated:
+    if activated and layers_act_num <= 400:
+        print(layers_act_num, " activated")
         offset = torch.load(offset_file).cuda()
         if x.shape[0] != 1: 
             offset = torch.cat([offset for _ in range(x.shape[0])],dim=0)
     else:
+        print(layers_act_num, " not activated")
         offset = torch.zeros(x.shape[0],2*k*k,int(x.shape[2]/s),int(x.shape[3]/s)).cuda()
     offset.require_gradient = False
     y = loc_layer(x,offset)
@@ -26,8 +28,8 @@ class ResidualBlock(nn.Module):
   
         # self.conv1 = nn.Conv2d(in_planes, planes, kernel_size=3, padding=1, stride=stride)
         self.conv1 = torchvision.ops.DeformConv2d(in_planes, planes, kernel_size=3, padding=1, stride=stride)
-        self.conv2 = nn.Conv2d(planes, planes, kernel_size=3, padding=1)
-        # self.conv2 = torchvision.ops.DeformConv2d(planes, planes, kernel_size=3, padding=1)
+        # self.conv2 = nn.Conv2d(planes, planes, kernel_size=3, padding=1)
+        self.conv2 = torchvision.ops.DeformConv2d(planes, planes, kernel_size=3, padding=1)
         self.relu = nn.ReLU(inplace=True)
 
         num_groups = planes // 8
@@ -67,11 +69,9 @@ class ResidualBlock(nn.Module):
     def forward(self, x):
         y = x
         # y = self.relu(self.norm1(self.conv1(y)))
-        print(y.shape)
-        print(self.conv1.stride[0])
-        y = self.relu(self.norm1(func_conv_deform(y, self.conv1, 3, self.conv1.stride[0], self.num_l, '', True)))
-        y = self.relu(self.norm2(self.conv2(y)))
-        # y = self.relu(self.norm2(func_conv_deform(y, self.conv2, 3, 1, 1, '', True)))
+        y = self.relu(self.norm1(func_conv_deform(y, self.conv1, 3, self.conv1.stride[0], self.num_l, '', False)))
+        # y = self.relu(self.norm2(self.conv2(y)))
+        y = self.relu(self.norm2(func_conv_deform(y, self.conv2, 3, 1, self.num_l+1, '', False)))
 
         if self.downsample is not None:
             x = self.downsample(x)
@@ -139,9 +139,10 @@ class BottleneckBlock(nn.Module):
         return self.relu(x+y)
 
 class BasicEncoder(nn.Module):
-    def __init__(self, output_dim=128, norm_fn='batch', dropout=0.0):
+    def __init__(self, output_dim=128, norm_fn='batch', dropout=0.0, num_be=0):
         super(BasicEncoder, self).__init__()
         self.norm_fn = norm_fn
+        self.num_be = num_be
 
         if self.norm_fn == 'group':
             self.norm1 = nn.GroupNorm(num_groups=8, num_channels=64)
@@ -160,9 +161,9 @@ class BasicEncoder(nn.Module):
         self.relu1 = nn.ReLU(inplace=True)
 
         self.in_planes = 64
-        self.layer1 = self._make_layer(64,  stride=1, num_l=0)
-        self.layer2 = self._make_layer(96, stride=2, num_l=10)
-        self.layer3 = self._make_layer(128, stride=2, num_l=20)
+        self.layer1 = self._make_layer(64,  stride=1, num_l=1+self.num_be)
+        self.layer2 = self._make_layer(96, stride=2, num_l=11+self.num_be)
+        self.layer3 = self._make_layer(128, stride=2, num_l=21+self.num_be)
 
         # output convolution
         self.conv2 = nn.Conv2d(128, output_dim, kernel_size=1)
@@ -197,7 +198,7 @@ class BasicEncoder(nn.Module):
             batch_dim = x[0].shape[0]
             x = torch.cat(x, dim=0)
 
-        x = func_conv_deform(x, self.conv1, 7, 2, 0, '', True)
+        x = func_conv_deform(x, self.conv1, 7, 2, 0+self.num_be, '', False)
         x = self.norm1(x)
         x = self.relu1(x)
 

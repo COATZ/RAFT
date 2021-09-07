@@ -112,7 +112,11 @@ arguments_BS = 1
 arguments_WIDTH = 1
 arguments_HEIGHT = 10
 arguments_KERNEL = 3
+arguments_KERNEL_X = 3
+arguments_KERNEL_Y = 3
 arguments_PADDING = 1
+arguments_PADDING_X = 1
+arguments_PADDING_Y = 1
 arguments_STRIDE = 1
 arguments_DILATION = 1
 
@@ -120,7 +124,11 @@ for strOption, strArgument in getopt.getopt(sys.argv[1:], '', [ strParameter[2:]
 	if strOption == '--w' and strArgument != '': arguments_WIDTH = strArgument
 	if strOption == '--h' and strArgument != '': arguments_HEIGHT = strArgument
 	if strOption == '--k' and strArgument != '': arguments_KERNEL = strArgument 
-	if strOption == '--p' and strArgument != '': arguments_PADDING = strArgument 
+	if strOption == '--kx' and strArgument != '': arguments_KERNEL_X = strArgument 
+	if strOption == '--ky' and strArgument != '': arguments_KERNEL_Y = strArgument 
+	if strOption == '--p' and strArgument != '': arguments_PADDING = strArgument
+	if strOption == '--px' and strArgument != '': arguments_PADDING_X = strArgument
+	if strOption == '--py' and strArgument != '': arguments_PADDING_Y = strArgument
 	if strOption == '--s' and strArgument != '': arguments_STRIDE = strArgument
 	if strOption == '--d' and strArgument != '': arguments_DILATION = strArgument 
 	if strOption == '--bs' and strArgument != '': arguments_BS = strArgument 
@@ -129,14 +137,16 @@ if __name__ == "__main__":
     
     torch.manual_seed(0)
     input = torch.zeros(int(arguments_BS),1,int(arguments_HEIGHT),int(arguments_WIDTH))
-    weight = torch.zeros(1,1,int(arguments_KERNEL),int(arguments_KERNEL))
+    # weight = torch.zeros(1,1,int(arguments_KERNEL),int(arguments_KERNEL))
+    weight = torch.zeros(1,1,int(arguments_KERNEL_Y),int(arguments_KERNEL_X))
     stride = int(arguments_STRIDE)
-    padding = int(arguments_PADDING)
+    # padding = int(arguments_PADDING)
     dilation = int(arguments_DILATION)
     #print(input.dtype)
 
     stride_h, stride_w = _pair(stride)
-    pad_h, pad_w = _pair(padding)
+    # pad_h, pad_w = _pair(padding)
+    pad_h, pad_w = [int(arguments_PADDING_Y),int(arguments_PADDING_X)]
     dil_h, dil_w = _pair(dilation)
     weights_h, weights_w = weight.shape[-2:]
     bs, n_in_channels, in_h, in_w = input.shape
@@ -145,9 +155,10 @@ if __name__ == "__main__":
     pano_H = int((in_h + 2*pad_h - dil_h*(weights_h-1)-1)//stride_h + 1)
     
     print(pano_W, pano_H, weights_w, weights_h, stride_w, stride_h, bs)
-    
-    offset = distortion_aware_map(pano_W, pano_H, weights_w, weights_h, s_width = stride_w, s_height = stride_h, bs = bs)
-    torch.save(offset,'./OFFSETS/offset_'+str(pano_W)+'_'+str(pano_H)+'_'+str(weights_w)+'_'+str(weights_h)+'_'+str(stride_w)+'_'+str(stride_h)+'_'+str(bs)+'.pt')
+    k_W = weights_w
+    k_H = weights_h
+    offset = distortion_aware_map(pano_W, pano_H, k_W, k_H, s_width = stride_w, s_height = stride_h, bs = bs)
+    torch.save(offset,'./OFFSETS/offset_'+str(pano_W)+'_'+str(pano_H)+'_'+str(k_W)+'_'+str(k_H)+'_'+str(stride_w)+'_'+str(stride_h)+'_'+str(bs)+'.pt')
     
     #offset_col = distortion_aware_col(pano_W, pano_H, weights_w, weights_h, s_width = stride_w, s_height = stride_h, bs = bs)
     #torch.save(offset_col,'./OFFSETS/offset_col_'+str(pano_H)+'_'+str(weights_w)+'_'+str(weights_h)+'_'+str(stride_w)+'_'+str(stride_h)+'_'+str(bs)+'.pt')
