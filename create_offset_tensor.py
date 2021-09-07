@@ -108,7 +108,7 @@ def distortion_aware_col(pano_W, pano_H, k_W, k_H, s_width = 1, s_height = 1,bs 
     #print(offset)
     return offset
 
-arguments_CHANNEL = 1
+arguments_BS = 1
 arguments_WIDTH = 1
 arguments_HEIGHT = 10
 arguments_KERNEL = 3
@@ -123,12 +123,12 @@ for strOption, strArgument in getopt.getopt(sys.argv[1:], '', [ strParameter[2:]
 	if strOption == '--p' and strArgument != '': arguments_PADDING = strArgument 
 	if strOption == '--s' and strArgument != '': arguments_STRIDE = strArgument
 	if strOption == '--d' and strArgument != '': arguments_DILATION = strArgument 
-	if strOption == '--c' and strArgument != '': arguments_CHANNEL = strArgument 
+	if strOption == '--bs' and strArgument != '': arguments_BS = strArgument 
     
 if __name__ == "__main__":
     
     torch.manual_seed(0)
-    input = torch.zeros(int(arguments_CHANNEL),1,int(arguments_HEIGHT),int(arguments_WIDTH))
+    input = torch.zeros(int(arguments_BS),1,int(arguments_HEIGHT),int(arguments_WIDTH))
     weight = torch.zeros(1,1,int(arguments_KERNEL),int(arguments_KERNEL))
     stride = int(arguments_STRIDE)
     padding = int(arguments_PADDING)
